@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>OpenSea 抢购</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            border: 1px solid #333;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .title {
+            text-align: center;
+            color: #00ff00;
+        }
+        .section {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #2a2a2a;
+            border-radius: 3px;
+        }
+        .label {
+            font-weight: bold;
+        }
+        button {
+            background-color: #00ff00;
+            color: #000;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #00cc00;
+        }
+        #result {
+            margin-top: 10px;
+            color: #00ff00;
+        }
+        .error {
+            color: #ff0000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">OpenSea 抢购</h1>
+        <div class="section">
+            <p class="label">RPC 端点:</p>
+            <p id="rpcEndpoint">wss://eth-mainnet.g.alchemy.com</p>
+        </div>
+        <div class="section">
+            <p class="label">交易哈希:</p>
+            <p id="txHash">等待交易...</p>
+        </div>
+        <div class="section">
+            <p class="label">区块高度 & Gas:</p>
+            <p id="gasInfo">Gas Price: 加载中... | Gas Limit: 230000</p>
+        </div>
+        <div class="section">
+            <p class="label">抢购 NFT:</p>
+            <input type="number" id="tokenId" placeholder="输入 Token ID" />
+            <button onclick="mintNFT()">抢购</button>
+            <p id="result">状态: 准备就绪</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+    <script>
+        // 替换以下敏感信息
+        const alchemyApiKey = "你的 Alchemy API 密钥";
+        const walletAddress = "你的钱包地址"; // 例如 0x123...
+        const privateKey = "你的私钥"; // 例如 0x456...（注意安全）
+        const contractAddress = "0x你的 NFT 合约地址"; // 替换为目标 NFT 合约地址
+        const contractAbi = [/* 你的合约 ABI，例如 [{"constant":false,"inputs":[{"name":"tokenId","type":"uint256"}],"name":"mint","outputs":[],"payable":true,"stateMutability":"payable","type":"function"}] */];
+
+        // 连接到以太坊网络（使用 Alchemy 的 RPC）
+        const alchemyUrl = `https://eth-mainnet.g.alchemy.com/v2/${alchemyApiKey}`;
+        const web3 = new Web3(alchemyUrl);
+
+        async function getGasPrice() {
+            try {
+                const gasPrice = await web3.eth.getGasPrice();
+                document.getElementById("gasInfo").innerText = `Gas Price: ${web3.utils.fromWei(gasPrice, 'gwei')} Gwei | Gas Limit: 230000`;
+            } catch (error) {
+                document.getElementById("gasInfo").innerText = `错误: ${error.message}`;
+            }
+        }
+
+        async function mintNFT() {
+            const tokenId = document.getElementById("tokenId").value;
+            if (!tokenId) {
+                document.getElementById("result").innerText = "错误: 请输入 Token ID";
+                document.getElementById("result").className = "error";
+                return;
+            }
+
+            document.getElementById("result").innerText = "正在处理交易...";
+            document.getElementById("result").className = "";
+
+            try {
+                const contract = new web3.eth.Contract(contractAbi, contractAddress);
+                const gasPrice = await web3.eth.getGasPrice();
+                const nonce = await web3.eth.getTransactionCount(walletAddress);
+
+                const tx = {
+                    from: walletAddress,
+                    to: contractAddress,
+                    gas: 230000,
+                    gasPrice: gasPrice,
+                    data: contract.methods.mint(tokenId).encodeABI(),
+                    value: web3.utils.toWei("0.01", "ether"), // 支付 0.01 ETH（根据需求调整）
+                    nonce: nonce
+                };
+
+                const signedTx = await web3.eth.accounts.signTransaction(tx, privateKey);
+                const txHash = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+
+                document.getElementById("txHash").innerText = `交易哈希: ${txHash}`;
+                document.getElementById("result").innerText = "抢购成功！";
+                document.getElementById("result").className = "";
+            } catch (error) {
+                document.getElementById("result").innerText = `错误: ${error.message}`;
+                document.getElementById("result").className = "error";
+            }
+        }
+
+        // 加载时获取 Gas 价格
+        getGasPrice();
+    </script>
+</body>
+</html>
